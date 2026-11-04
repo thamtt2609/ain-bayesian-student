@@ -4,6 +4,8 @@
 
 This project models student academic trajectories using a Bayesian Network (BN) parameterized with discrete Conditional Probability Tables (CPTs). The network represents a Directed Acyclic Graph (DAG) that captures conditional dependencies among six educational random variables to simulate synthetic student performance at FIT HANU.
 
+**Current Branch**: `midterm` — Midterm milestone (AI Core) completed ✅
+
 ## Features
 
 ### Core Components
@@ -33,27 +35,41 @@ This project models student academic trajectories using a Bayesian Network (BN) 
    - Scenario loading capabilities
    - Synthetic data notice banner
 
-## Midterm Requirements (AI Core)
+## Midterm Requirements (AI Core) — **COMPLETED**
 
-Students must implement the following in `starter/student_core.py`:
+Students implemented the following in `starter/student_core.py`:
 
-### 1. Probabilistic Inference (`infer_posterior`)
-Implement exact inference by enumeration or likelihood weighting sampling to compute:
+### 1. Probabilistic Inference (`infer_posterior`) ✅
+Implemented **exact inference by enumeration** to compute:
 ```
 P(query | evidence) = α ∑_y P(query, evidence, y)
 ```
-Where the output is a normalized probability distribution summing to 1.0.
+Output: normalized probability distribution summing to 1.0.
 
-### 2. Controlled Experiment (`sensitivity_experiment`)
+### 2. Controlled Experiment (`sensitivity_experiment`) ✅
 Using scenario P05-CPT-SENSITIVITY:
-- Alter one specific conditional probability row in `base_cpt.json`
-- Compute KL divergence or absolute probability drift between baseline and perturbed posteriors
-- Report findings demonstrating understanding of parameter sensitivity
+- Alter specific conditional probability rows in `base_cpt.json`
+- Compute **KL divergence** and **absolute probability drift** between baseline and perturbed posteriors
+- Comprehensive analysis with 5 experiments (3 direct, 2 indirect modifications)
+
+### 3. Sensitivity Analysis Test Suite & Visualizations ✅
+- `tests/test_sensitivity_analysis.py` — Automated test generating 4 visualization charts
+- `tests/GUIDE.md` — Documentation for running the analysis
+- `visualization/` — Generated charts:
+  - `sensitivity_kl_divergence.png` — KL divergence bar chart
+  - `sensitivity_absolute_drift.png` — Absolute drift heatmap
+  - `sensitivity_posteriors.png` — Side-by-side posterior comparison
+  - `sensitivity_summary_table.png` — Formatted results table
+  - `EXPLAIN.md` — Detailed results explanation
+
+### Key Finding
+Direct modifications to Performance CPT show **high sensitivity** (KL: 0.03–0.33, Max Drift: up to 0.40).  
+Indirect/upstream modifications show **zero drift** due to **d-separation** — observing AssignmentCompletion and ExamDifficulty makes Performance independent of upstream variables.
 
 ## Technical Implementation
 
 ### Dependencies
-See `requirements.txt` for pinned package versions including Streamlit.
+See `requirements.txt` for pinned package versions including Streamlit, matplotlib, numpy.
 
 ### Data Flow
 1. `loader.py`: Infrastructure layer for loading JSON/CSV data
@@ -62,14 +78,13 @@ See `requirements.txt` for pinned package versions including Streamlit.
 
 ### Validation
 - Sanity tests in `tests/test_project_05_sanity.py` verify data integrity
+- Sensitivity test in `tests/test_sensitivity_analysis.py` validates inference and generates visualizations
 - Grading focuses on:
   - Mathematical correctness of inference (15 pts)
   - Rigor of sensitivity analysis (10 pts) 
   - Oral defense and live demonstration (15 pts)
 
-## Final Project Enhancements (AI Product)
-
-For the final milestone, students will enhance the application with:
+## Final Project Enhancements (AI Product) — *Planned for next milestone*
 
 ### Required Features
 - Interactive network graph visualizer (beyond current JSON display)
@@ -94,8 +109,11 @@ Demonstrate correct reasoning across all four benchmark fixtures:
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/manhanbanhcanh/ain-bayesian-student.git
 cd ain-bayesian-student
+
+# Switch to midterm branch
+git checkout midterm
 
 # Create virtual environment
 python3.11 -m venv .venv
@@ -106,6 +124,9 @@ pip install -r requirements.txt
 
 # Run the dashboard
 streamlit run starter/app.py
+
+# Run sensitivity analysis (generates visualizations in visualization/)
+python tests/test_sensitivity_analysis.py
 ```
 
 ## Implementation Workflow
