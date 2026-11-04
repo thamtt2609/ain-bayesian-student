@@ -1,126 +1,159 @@
-# Bayesian Student Scenario Simulator - Test Guide
+# Sensitivity Analysis Test Guide
 
-This guide explains the testing structure and how to validate your implementation for the Bayesian Student Scenario Simulator project.
+This guide explains how to run the CPT sensitivity analysis test and generate visualizations for Project 05.
 
-## Test Files Overview
+## Overview
 
-### 1. `test_project_05_sanity.py`
-Sanity tests that verify:
-- Data integrity of JSON files (bn_schema.json, base_cpt.json, scenarios.json)
-- Proper loading of data through the loader module
-- Basic structural validity of the Bayesian Network
+The `test_sensitivity_analysis.py` script conducts the mandatory **CPT sensitivity analysis** required by the midterm milestone:
 
-These tests should pass regardless of your implementation in student_core.py as they only check data loading and integrity.
+> **Mandatory Controlled Experiment**: Conduct a formal CPT sensitivity analysis (`sensitivity_experiment`). Using scenario `P05-CPT-SENSITIVITY` from `data/scenarios.json`, alter one specific conditional probability row in `base_cpt.json` (e.g., adjusting the conditional impact of `StudyConsistency` on `Performance`). Compute and report the Kullback-Leibler (KL) divergence or absolute probability drift between the baseline and perturbed posterior distributions.
 
-### 2. `test_sensitivity.py`
-A manual test script for validating the sensitivity experiment function. This demonstrates:
-- How to load data using the loader module
-- How to call infer_posterior for baseline calculations
-- How to create a modified CPT for sensitivity analysis
-- How to call and interpret sensitivity_experiment results
+## Prerequisites
 
-## Running Tests
+1. Python 3.11+ with the project dependencies installed
+2. Virtual environment activated (or use the project's `.venv`)
 
-### Sanity Tests
 ```bash
-pytest tests/test_project_05_sanity.py -v
+# From project root
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-These tests verify that:
-- All required JSON files exist and are valid JSON
-- The Bayesian Network structure is correctly formatted
-- Conditional Probability Tables have proper structure
-- Scenario data is present and correctly formatted
+## Running the Test
 
-### Manual Sensitivity Test
 ```bash
-python tests/test_sensitivity.py
+# From project root
+python tests/test_sensitivity_analysis.py
 ```
 
-This script will:
-1. Load the BN schema, base CPT, and scenarios
-2. Select the P05-CPT-SENSITIVITY scenario as baseline
-3. Run infer_posterior to get baseline posterior
-4. Create a modified CPT (adjusting one probability row)
-5. Run sensitivity_experiment to compare baseline vs modified
-6. Print results for manual verification
+Or using the virtual environment directly:
 
-## Expected Test Behavior
+```bash
+# Windows
+.venv\Scripts\python.exe tests\test_sensitivity_analysis.py
 
-### Before Implementation
-- `test_project_05_sanity.py` should PASS (data integrity checks only)
-- `test_sensitivity.py` will show "Not implemented yet" messages in the Streamlit app
-- Manual sensitivity test will raise NotImplementedError from infer_posterior
+# Linux/Mac
+.venv/bin/python tests/test_sensitivity_analysis.py
+```
 
-### After Implementation
-- `test_project_05_sanity.py` should still PASS (unchanged)
-- Streamlit app should compute and display posterior probabilities correctly
-- Manual sensitivity test should run successfully and show:
-  - Baseline posterior distribution
-  - Modified posterior distribution
-  - Sensitivity result with KL divergence, absolute drift, etc.
+## What the Test Does
 
-## How to Add Your Own Tests
+1. **Loads the Bayesian Network** schema, CPTs, and scenarios from `data/`
+2. **Uses scenario `P05-CPT-SENSITIVITY`** as the baseline:
+   - Evidence: `AssignmentCompletion=Medium`, `ExamDifficulty=Medium`
+   - Query: `Performance`
+3. **Runs 5 sensitivity experiments** modifying different CPT rows:
 
-You can extend testing by:
+   ### Direct Modifications (Performance CPT)
+   - `Performance | Medium|Medium`: Shift 0.1 from Pass → Distinction
+   - `Performance | Medium|Medium`: Shift 0.1 from Fail → Pass
+   - `Performance | Medium|Medium`: Reduce Fail/Pass by 50%, boost Distinction
 
-1. **Adding pytest tests** in the tests/ directory following the same pattern
-2. **Creating additional manual test scripts** similar to test_sensitivity.py
-3. **Using the Streamlit app interactively** to test various evidence combinations
+   ### Indirect Modifications (Upstream CPTs)
+   - `StudyConsistency | High|High`: Reduce Low, increase Medium
+   - `AssignmentCompletion | Medium`: Reduce Low, increase Medium
 
-## Test Data Locations
+4. **Computes metrics** for each modification:
+   - **KL Divergence**: D_KL(Baseline || Modified) = Σ P(x) log(P(x)/Q(x))
+   - **Absolute Probability Drift**: |P(x) - Q(x)| for each state
+   - **Max Absolute Drift**: Maximum drift across all states
 
-All test data is located in the `data/` directory:
-- `bn_schema.json` - Bayesian Network structure (nodes, states, parents)
-- `base_cpt.json` - Baseline Conditional Probability Tables
-- `scenarios.json` - Four predefined test scenarios:
-  - P05-LITTLE-EVIDENCE
-  - P05-STRONG-POSITIVE
-  - P05-CONFLICTING
-  - P05-CPT-SENSITIVITY
-- `students_seed42.csv` - Synthetic dataset (1,000 records)
+5. **Generates 4 visualizations** in `visualization/`:
+   - `sensitivity_kl_divergence.png` — Bar chart of KL divergence by modification
+   - `sensitivity_absolute_drift.png` — Heatmap of absolute drift by state
+   - `sensitivity_posteriors.png` — Side-by-side posterior comparison
+   - `sensitivity_summary_table.png` — Formatted summary table
 
-## Validation Checklist
+## Expected Output
 
-When implementing your solution, verify:
+```
+============================================================
+CPT SENSITIVITY ANALYSIS - VISUALIZATION
+============================================================
+Scenario: P05-CPT-SENSITIVITY
+Evidence: {'AssignmentCompletion': 'Medium', 'ExamDifficulty': 'Medium'}
+Query: Performance
 
-1. **Data Loading Tests Pass**
-   ```bash
-   pytest tests/test_project_05_sanity.py -v
-   ```
+Baseline Posterior:
+  Fail: 0.2500
+  Pass: 0.5500
+  Distinction: 0.2000
 
-2. **Manual Sensitivity Test Runs**
-   ```bash
-   python tests/test_sensitivity.py
-   ```
+--- Direct: Performance | Medium|Medium
+Shift 0.1 Pass -> Distinction ---
+  KL Divergence: 0.029276
+  Max Abs Drift: 0.100000
+  ...
 
-3. **Streamlit App Functions**
-   - Evidence toggles work correctly
-   - Scenario loading populates evidence fields
-   - Compute button shows posterior distributions
-   - Probabilities sum to approximately 1.0
-   - Different queries (not just Performance) work correctly
+[OK] Saved: visualization/sensitivity_kl_divergence.png
+[OK] Saved: visualization/sensitivity_absolute_drift.png
+[OK] Saved: visualization/sensitivity_posteriors.png
+[OK] Saved: visualization/sensitivity_summary_table.png
 
-4. **Edge Cases Handled**
-   - Empty evidence (should return priors)
-   - Full evidence (should return deterministic result)
-   - Single variable queries
-   - All six variables as possible query targets
+============================================================
+ALL VISUALIZATIONS GENERATED IN visualization/
+============================================================
+```
 
-## Troubleshooting Test Failures
+## Interpreting Results
 
-If tests fail:
+### Key Findings
 
-1. **Sanity test failures**: Check data files in data/ directory for corruption or formatting issues
-2. **Sensitivity test failures**: Verify your infer_posterior implementation is correct
-3. **Streamlit issues**: Check browser console for JavaScript errors, ensure Streamlit is updated
+| Modification Type | KL Divergence | Max Drift | Interpretation |
+|---|---|---|---|
+| Direct (Performance CPT) | 0.03 - 0.33 | 0.10 - 0.40 | **High sensitivity** — Direct changes to the query node's CPT immediately affect the posterior |
+| Indirect (Upstream CPTs) | ~0.00 | 0.00 | **Low/No sensitivity** — With evidence on AssignmentCompletion and ExamDifficulty, upstream changes don't propagate to Performance |
 
-## Contact
+### Why Indirect Changes Show Zero Drift
 
-For questions about the testing structure or implementation requirements, refer to:
-- INFORMATION.md - Complete requirements specification
-- WORKFLOW.md - Step-by-step implementation guide
-- README.md - Project overview and features
+The evidence `AssignmentCompletion=Medium` and `ExamDifficulty=Medium` **d-separates** Performance from upstream variables (StudyConsistency, PriorPreparation, Attendance). Once we observe the direct parents of Performance, the CPT of Performance fully determines its posterior — upstream CPT changes have no effect.
 
----
-*Guide for validating Bayesian Student Scenario Simulator implementation*
+This is a key **Bayesian Network property**: observing the Markov blanket of a node makes it independent of the rest of the network.
+
+## Troubleshooting
+
+### "ModuleNotFoundError: No module named 'matplotlib'"
+```bash
+pip install matplotlib numpy
+```
+
+### "UnicodeEncodeError" on Windows
+The script uses ASCII-safe characters. If you see encoding errors, ensure you're using the project's virtual environment Python.
+
+### No visualizations generated
+Check that the `visualization/` directory exists and is writable. The script creates it automatically.
+
+## Files Generated
+
+```
+visualization/
+├── sensitivity_kl_divergence.png      # KL divergence bar chart
+├── sensitivity_absolute_drift.png     # Absolute drift heatmap
+├── sensitivity_posteriors.png         # Side-by-side posterior bars
+└── sensitivity_summary_table.png      # Formatted results table
+```
+
+## Customizing the Analysis
+
+To test different CPT modifications, edit the `modifications` list in `test_sensitivity_analysis.py`:
+
+```python
+modifications.append({
+    "name": "Your Description",
+    "node": "NodeName",
+    "parent_key": "ParentState1|ParentState2",  # or "" for root nodes
+    "new_row": [0.1, 0.3, 0.6],  # Must sum to 1.0
+    "type": "direct" or "indirect",
+})
+```
+
+The `normalize_row()` function ensures probabilities are valid (non-negative, sum to 1.0).
+
+## References
+
+- Project specification: `INFORMATION.md` (Section 3.1 Midterm Milestone)
+- Bayesian Network: `data/bn_schema.json`
+- CPTs: `data/base_cpt.json`
+- Scenarios: `data/scenarios.json`
+- Inference implementation: `starter/student_core.py`
