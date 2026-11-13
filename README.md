@@ -94,7 +94,7 @@ Demonstrate correct reasoning across all four benchmark fixtures:
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/thamtt2609/ain-bayesian-student/
 cd ain-bayesian-student
 
 # Create virtual environment
