@@ -89,3 +89,100 @@ st.divider()
 st.subheader("Committed synthetic sample (first 20 rows)")
 students = loader.load_students()
 st.dataframe(students[:20])
+
+# ==========================================
+# SENSITIVITY EXPERIMENTS
+# ==========================================
+
+st.divider()
+st.header("Sensitivity Experiments")
+
+# Load the CPT sensitivity scenario
+sensitivity_scenario = next(
+    s for s in scenarios
+    if s["id"] == "P05-CPT-SENSITIVITY"
+)
+
+baseline_evidence = sensitivity_scenario["evidence"]
+sensitivity_query = sensitivity_scenario["query"]
+
+# Baseline posterior
+baseline_posterior = student_core.infer_posterior(
+    baseline_evidence,
+    sensitivity_query,
+    bn_schema,
+    cpt
+)
+
+# Experiment 1: Modify one CPT row
+import copy
+
+modified_cpt = copy.deepcopy(cpt)
+modified_cpt["Performance"]["table"]["Medium|Medium"] = [
+    0.15, 0.55, 0.30
+]
+
+experiment_1 = student_core.sensitivity_experiment(
+    baseline_evidence,
+    sensitivity_query,
+    bn_schema,
+    cpt,
+    modified_cpt
+)
+
+# Experiment 2: Change one evidence value
+changed_evidence = dict(baseline_evidence)
+changed_evidence["AssignmentCompletion"] = "High"
+
+experiment_2_posterior = student_core.infer_posterior(
+    changed_evidence,
+    sensitivity_query,
+    bn_schema,
+    cpt
+)
+
+# Display evidence
+st.subheader("Baseline Evidence")
+st.json(baseline_evidence)
+
+# Display three results
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.subheader("Baseline")
+    st.bar_chart(baseline_posterior)
+
+with col2:
+    st.subheader("Experiment 1")
+    st.caption("Modified CPT")
+    st.bar_chart({
+        state: experiment_1["modified_posterior"][i]
+        for i, state in enumerate(
+            ["Fail", "Pass", "Distinction"]
+        )
+    })
+    st.metric(
+        "KL Divergence",
+        f'{experiment_1["kl_divergence"][0]:.6f}'
+    )
+
+with col3:
+    st.subheader("Experiment 2")
+    st.caption("Changed AssignmentCompletion to High")
+    st.bar_chart(experiment_2_posterior)
+
+# Comparison table
+st.subheader("Posterior Comparison")
+
+comparison = {
+    "Baseline": baseline_posterior,
+    "Experiment 1": {
+        state: experiment_1["modified_posterior"][i]
+        for i, state in enumerate(
+            ["Fail", "Pass", "Distinction"]
+        )
+    },
+    "Experiment 2": experiment_2_posterior,
+}
+
+st.dataframe(comparison)
