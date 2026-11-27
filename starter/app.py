@@ -106,7 +106,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Title
-st.title("🎓 Bayesian Student Scenario Simulator")
+st.title("Bayesian Student Scenario Simulator")
 st.caption("Interactive probabilistic reasoning over student academic trajectories")
 
 # ==========================================
@@ -123,7 +123,17 @@ def create_network_graph():
             "font": {"size": 14, "face": "Arial"},
             "margin": 10,
             "borderWidth": 2,
-            "shadow": true
+            "shadow": true,
+            "tooltip": {
+                "delay": 200,
+                "fontSize": 11,
+                "fontColor": "#ffffff",
+                "color": "rgba(0, 0, 0, 0.85)",
+                "borderWidth": 1,
+                "borderColor": "#555555",
+                "maxWidth": 220,
+                "wrap": true
+            }
         },
         "edges": {
             "arrows": {"to": {"enabled": true, "scaleFactor": 0.8}},
@@ -139,7 +149,11 @@ def create_network_graph():
         "interaction": {
             "hover": true,
             "navigationButtons": true,
-            "keyboard": true
+            "keyboard": true,
+            "tooltipDelay": 200
+        },
+        "manipulation": {
+            "enabled": false
         }
     }
     """)
@@ -158,12 +172,14 @@ def create_network_graph():
         name = node["name"]
         states = ", ".join(node["states"])
         desc = node.get("description", "")
+        # Truncate description for tooltip
+        short_desc = desc[:80] + "..." if len(desc) > 80 else desc
         color = node_colors.get(name, "#757575")
 
         net.add_node(
             name,
             label=name,
-            title=f"{desc}\n\nStates: {states}",
+            title=f"{short_desc}\nStates: {states}",
             color=color,
             borderWidth=2,
             size=25
@@ -281,34 +297,21 @@ def run_scenario(scenario_id: str, custom_evidence: dict | None = None) -> dict:
 # ==========================================
 # SIDEBAR - EVIDENCE & CONTROLS
 # ==========================================
+
+# Callback to apply scenario evidence - runs BEFORE script re-run
+def apply_scenario_evidence():
+    chosen = next(s for s in scenarios if s["id"] == st.session_state["scenario_select"])
+    for var, val in chosen["evidence"].items():
+        st.session_state[f"include_{var}"] = True
+        st.session_state[f"value_{var}"] = val
+    st.session_state["query_select"] = chosen["query"]
+
 with st.sidebar:
-    st.header("🔧 Evidence Configuration")
+    st.header("Evidence Configuration")
     st.caption("Select variables to observe and their values")
 
-    # Evidence toggles
-    evidence: dict[str, str] = {}
-    for name in node_names:
-        with st.expander(f"{name}", expanded=False):
-            include = st.checkbox(f"Observe", key=f"include_{name}")
-            if include:
-                states = node_by_name[name]["states"]
-                value = st.selectbox("Value", states, key=f"value_{name}")
-                evidence[name] = value
-
-    st.divider()
-
-    # Query selection
-    query = st.selectbox(
-        "🎯 Query Variable",
-        node_names,
-        index=node_names.index("Performance"),
-        key="query_select"
-    ) or "Performance"
-
-    st.divider()
-
-    # Scenario loader
-    st.header("📋 Benchmark Scenarios")
+    # Scenario loader FIRST (so callback can access selected scenario)
+    st.header("Benchmark Scenarios")
     scenario_option = st.selectbox(
         "Load Scenario",
         ["(Custom Evidence)"] + [s["id"] for s in scenarios],
@@ -321,18 +324,34 @@ with st.sidebar:
         with st.expander("Evidence Details"):
             st.json(chosen.get("evidence", {}))
 
-        if st.button("🔄 Apply Scenario Evidence", use_container_width=True):
-            # Update session state to reflect scenario evidence
-            for var, val in chosen["evidence"].items():
-                st.session_state[f"include_{var}"] = True
-                st.session_state[f"value_{var}"] = val
-            st.session_state["query_select"] = chosen["query"]
-            st.rerun()
+        st.button("Apply Scenario Evidence", width="stretch", on_click=apply_scenario_evidence)
+
+    st.divider()
+
+    # Query selection
+    query = st.selectbox(
+        "Query Variable",
+        node_names,
+        index=node_names.index("Performance"),
+        key="query_select"
+    ) or "Performance"
+
+    st.divider()
+
+    # Evidence toggles (created AFTER callback can modify session state)
+    evidence: dict[str, str] = {}
+    for name in node_names:
+        with st.expander(f"{name}", expanded=False):
+            include = st.checkbox(f"Observe", key=f"include_{name}")
+            if include:
+                states = node_by_name[name]["states"]
+                value = st.selectbox("Value", states, key=f"value_{name}")
+                evidence[name] = value
 
     st.divider()
 
     # Compute button
-    compute_clicked = st.button("🚀 Compute Posterior", type="primary", use_container_width=True)
+    compute_clicked = st.button("Compute Posterior", type="primary", width="stretch")
 
     st.divider()
     st.caption("All data is synthetic educational simulation.")
@@ -341,11 +360,11 @@ with st.sidebar:
 # MAIN CONTENT - TABS
 # ==========================================
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Network & Inference",
-    "📈 Prior vs Posterior",
-    "⚖️ Scenario Comparison",
-    "🧪 Benchmark Scenarios",
-    "🔬 Sensitivity Analysis"
+    "Network & Inference",
+    "Prior vs Posterior",
+    "Scenario Comparison",
+    "Benchmark Scenarios",
+    "Sensitivity Analysis"
 ])
 
 # Compute posterior if button clicked or scenario loaded
@@ -372,7 +391,7 @@ with tab1:
     col_left, col_right = st.columns([1, 1])
 
     with col_left:
-        st.subheader("🕸️ Interactive Bayesian Network")
+        st.subheader("Interactive Bayesian Network")
         st.caption("Hover nodes for details. Drag to rearrange. Use controls to zoom/pan.")
 
         # Render network graph
@@ -380,7 +399,7 @@ with tab1:
         st.components.v1.html(graph_html, height=520)  # type: ignore[attr-defined]
 
         # Network structure details
-        with st.expander("📐 Network Structure (JSON)"):
+        with st.expander("Network Structure (JSON)"):
             st.json({
                 "nodes": [{"name": n["name"], "states": n["states"], "parents": n["parents"]} for n in bn_schema["nodes"]],
                 "edges": bn_schema["edges"],
@@ -388,7 +407,7 @@ with tab1:
             })
 
     with col_right:
-        st.subheader("📋 Current Inference")
+        st.subheader("Current Inference")
 
         # Evidence summary
         if evidence:
@@ -396,7 +415,7 @@ with tab1:
             evidence_df = pd.DataFrame([
                 {"Variable": k, "Observed Value": v} for k, v in evidence.items()
             ])
-            st.dataframe(evidence_df, hide_index=True, use_container_width=True)
+            st.dataframe(evidence_df, hide_index=True)
         else:
             st.info("No evidence selected. Posterior equals prior.")
 
@@ -408,7 +427,7 @@ with tab1:
                 {"State": k, "Probability": f"{v:.4f}", "Percentage": f"{v*100:.1f}%"}
                 for k, v in posterior.items()
             ])
-            st.dataframe(post_df, hide_index=True, use_container_width=True)
+            st.dataframe(post_df, hide_index=True)
 
             # Bar chart
             fig = px.bar(
@@ -419,7 +438,7 @@ with tab1:
                 color_continuous_scale='Reds'
             )
             fig.update_layout(showlegend=False, height=300, template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             # Most likely outcome
             max_state = get_max_state(posterior)
@@ -430,15 +449,15 @@ with tab1:
 # TAB 2: PRIOR VS POSTERIOR
 # ==========================================
 with tab2:
-    st.subheader("📊 Side-by-Side Prior vs Posterior Comparison")
+    st.subheader("Side-by-Side Prior vs Posterior Comparison")
 
     if posterior and prior:
         # Side-by-side bar chart
         fig = create_distribution_chart(prior, posterior, query, f"Prior vs Posterior for {query}")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # Detailed comparison table
-        st.subheader("📋 Detailed Comparison")
+        st.subheader("Detailed Comparison")
         comparison_data = []
         for state in prior.keys():
             prior_val = prior[state]
@@ -453,7 +472,7 @@ with tab2:
             })
 
         comp_df = pd.DataFrame(comparison_data)
-        st.dataframe(comp_df, hide_index=True, use_container_width=True)
+        st.dataframe(comp_df, hide_index=True)
 
         # KL Divergence
         kl_div = sum(
@@ -472,27 +491,45 @@ with tab2:
             st.metric("Max State Drift", f"{max_drift:.4f}")
 
         # Interpretation
-        st.subheader("💡 Interpretation")
+        st.subheader("Interpretation")
         if total_drift < 0.1:
-            st.info("📉 **Weak evidence**: Posterior remains close to prior. The observed evidence has little discriminative power.")
+            st.info("**Weak evidence**: Posterior remains close to prior. The observed evidence has little discriminative power.")
         elif total_drift < 0.3:
-            st.warning("📊 **Moderate evidence**: Posterior shows noticeable shift from prior. Evidence provides meaningful information.")
+            st.warning("**Moderate evidence**: Posterior shows noticeable shift from prior. Evidence provides meaningful information.")
         else:
-            st.success("📈 **Strong evidence**: Posterior differs substantially from prior. Evidence is highly informative.")
+            st.success("**Strong evidence**: Posterior differs substantially from prior. Evidence is highly informative.")
     else:
         st.info("Compute a posterior in the Network & Inference tab to see the comparison.")
 
 # ==========================================
 # TAB 3: SCENARIO COMPARISON (Two Profiles)
 # ==========================================
+
+# Callbacks for quick load buttons - run BEFORE script re-run
+def apply_quick_load_a():
+    scenario_id = st.session_state.get("quick_load_a_scenario")
+    if scenario_id:
+        chosen = next(s for s in scenarios if s["id"] == scenario_id)
+        for var, val in chosen["evidence"].items():
+            st.session_state[f"include_a_{var}"] = True
+            st.session_state[f"value_a_{var}"] = val
+
+def apply_quick_load_b():
+    scenario_id = st.session_state.get("quick_load_b_scenario")
+    if scenario_id:
+        chosen = next(s for s in scenarios if s["id"] == scenario_id)
+        for var, val in chosen["evidence"].items():
+            st.session_state[f"include_b_{var}"] = True
+            st.session_state[f"value_b_{var}"] = val
+
 with tab3:
-    st.subheader("⚖️ Two Student Profile Comparison")
+    st.subheader("Two Student Profile Comparison")
     st.caption("Compare two hypothetical student profiles side by side")
 
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown("### 👤 Student Profile A")
+        st.markdown("### Student Profile A")
         evidence_a = {}
         for name in node_names:
             with st.expander(f"{name}", expanded=False):
@@ -507,14 +544,15 @@ with tab3:
         quick_cols = st.columns(2)
         for i, scenario in enumerate(scenarios[:2]):
             with quick_cols[i]:
-                if st.button(scenario["id"], key=f"quick_a_{i}", use_container_width=True):
-                    for var, val in scenario["evidence"].items():
-                        st.session_state[f"include_a_{var}"] = True
-                        st.session_state[f"value_a_{var}"] = val
-                    st.rerun()
+                st.button(
+                    scenario["id"],
+                    key=f"quick_a_{i}",
+                    width="stretch",
+                    on_click=lambda s=scenario["id"]: st.session_state.update({"quick_load_a_scenario": s}) or apply_quick_load_a()
+                )
 
     with col_b:
-        st.markdown("### 👤 Student Profile B")
+        st.markdown("### Student Profile B")
         evidence_b = {}
         for name in node_names:
             with st.expander(f"{name}", expanded=False):
@@ -529,16 +567,17 @@ with tab3:
         quick_cols = st.columns(2)
         for i, scenario in enumerate(scenarios[2:]):
             with quick_cols[i]:
-                if st.button(scenario["id"], key=f"quick_b_{i}", use_container_width=True):
-                    for var, val in scenario["evidence"].items():
-                        st.session_state[f"include_b_{var}"] = True
-                        st.session_state[f"value_b_{var}"] = val
-                    st.rerun()
+                st.button(
+                    scenario["id"],
+                    key=f"quick_b_{i}",
+                    width="stretch",
+                    on_click=lambda s=scenario["id"]: st.session_state.update({"quick_load_b_scenario": s}) or apply_quick_load_b()
+                )
 
     st.divider()
 
     # Compare button
-    if st.button("🔍 Compare Profiles", type="primary", use_container_width=True):
+    if st.button("Compare Profiles", type="primary", width="stretch"):
         if not evidence_a and not evidence_b:
             st.warning("Please configure at least one profile with evidence.")
         else:
@@ -565,19 +604,19 @@ with tab3:
                 height=400,
                 template="plotly_white"
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             # Radar chart
-            st.subheader("📡 Radar Comparison")
+            st.subheader("Radar Comparison")
             radar_fig = create_radar_chart(
                 {"Prior": prior_compare, "Profile A": posterior_a, "Profile B": posterior_b},
                 ["Prior", "Profile A", "Profile B"],
                 f"Distribution Shape Comparison for {query_compare}"
             )
-            st.plotly_chart(radar_fig, use_container_width=True)
+            st.plotly_chart(radar_fig, width="stretch")
 
             # Comparison table
-            st.subheader("📊 Numerical Comparison")
+            st.subheader("Numerical Comparison")
             comp_data = []
             for state in states:
                 comp_data.append({
@@ -589,10 +628,10 @@ with tab3:
                     "B vs Prior": f"{posterior_b[state] - prior_compare[state]:+.4f}",
                     "A vs B": f"{posterior_a[state] - posterior_b[state]:+.4f}"
                 })
-            st.dataframe(pd.DataFrame(comp_data), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(comp_data), hide_index=True)
 
             # KL Divergences
-            st.subheader("📏 Divergence Metrics")
+            st.subheader("Divergence Metrics")
             kl_a = sum(
                 posterior_a[s] * math.log(posterior_a[s] / prior_compare[s])
                 for s in posterior_a if posterior_a[s] > 0 and prior_compare[s] > 0
@@ -615,7 +654,7 @@ with tab3:
                 st.metric("KL(Profile A || Profile B)", f"{kl_ab:.6f}")
 
             # Most likely outcomes
-            st.subheader("🏆 Most Likely Outcomes")
+            st.subheader("Most Likely Outcomes")
             max_a = get_max_state(posterior_a)
             max_b = get_max_state(posterior_b)
             col1, col2 = st.columns(2)
@@ -628,7 +667,7 @@ with tab3:
 # TAB 4: BENCHMARK SCENARIOS
 # ==========================================
 with tab4:
-    st.subheader("🧪 All Four Benchmark Scenarios")
+    st.subheader("All Four Benchmark Scenarios")
     st.caption("Demonstrating correct probabilistic reasoning across stress & edge cases")
 
     # Run all scenarios
@@ -638,7 +677,7 @@ with tab4:
         all_results[scenario["id"]] = result
 
     # Summary cards
-    st.subheader("📋 Scenario Summary")
+    st.subheader("Scenario Summary")
     cols = st.columns(4)
     for i, (scenario_id, result) in enumerate(all_results.items()):
         with cols[i]:
@@ -662,7 +701,7 @@ with tab4:
 
     # Detailed view for each scenario
     for scenario_id, result in all_results.items():
-        with st.expander(f"🔍 {scenario_id} - Detailed Analysis", expanded=False):
+        with st.expander(f"{scenario_id} - Detailed Analysis", expanded=False):
             scenario = result["scenario"]
             evidence = result["evidence"]
             query = result["query"]
@@ -677,7 +716,7 @@ with tab4:
 
                 st.write("**Evidence:**")
                 ev_df = pd.DataFrame([{"Variable": k, "Value": v} for k, v in evidence.items()])
-                st.dataframe(ev_df, hide_index=True, use_container_width=True)
+                st.dataframe(ev_df, hide_index=True)
 
                 st.write("**Expected Behavior:**")
                 st.info(scenario.get("expected_direction", "N/A"))
@@ -685,17 +724,17 @@ with tab4:
             with col2:
                 # Prior vs Posterior chart
                 fig = create_distribution_chart(prior, posterior, query, f"{scenario_id}: Prior vs Posterior")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
                 # Posterior table
                 post_df = pd.DataFrame([
                     {"State": k, "Probability": f"{v:.4f}", "%": f"{v*100:.1f}%"}
                     for k, v in posterior.items()
                 ])
-                st.dataframe(post_df, hide_index=True, use_container_width=True)
+                st.dataframe(post_df, hide_index=True)
 
     # Combined comparison chart
-    st.subheader("📊 All Scenarios: Posterior Comparison")
+    st.subheader("All Scenarios: Posterior Comparison")
 
     # Create grouped bar chart for all scenarios
     fig = go.Figure()
@@ -731,20 +770,20 @@ with tab4:
         height=500,
         template="plotly_white"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # Radar chart comparison
-    st.subheader("📡 Distribution Shape Comparison (Radar)")
+    st.subheader("Distribution Shape Comparison (Radar)")
     radar_data = {sid: res["posterior"] for sid, res in all_results.items()}
     radar_data["Prior"] = prior_perf
     radar_fig = create_radar_chart(radar_data, list(radar_data.keys()), "Scenario Posterior Shapes")
-    st.plotly_chart(radar_fig, use_container_width=True)
+    st.plotly_chart(radar_fig, width="stretch")
 
 # ==========================================
 # TAB 5: SENSITIVITY ANALYSIS
 # ==========================================
 with tab5:
-    st.subheader("🔬 CPT Sensitivity Analysis")
+    st.subheader("CPT Sensitivity Analysis")
     st.caption("Required experiment: P05-CPT-SENSITIVITY scenario with parameter perturbations")
 
     # Load sensitivity scenario
@@ -765,7 +804,7 @@ with tab5:
     st.divider()
 
     # Experiment 1: Modify CPT row
-    st.subheader("🧪 Experiment 1: CPT Row Modification")
+    st.subheader("Experiment 1: CPT Row Modification")
     st.caption(sens_scenario["required_experiment"])
 
     # Let user choose which CPT row to modify
@@ -805,10 +844,10 @@ with tab5:
 
     total = sum(new_probs)
     if abs(total - 1.0) > 0.001:
-        st.warning(f"⚠️ Probabilities sum to {total:.3f}, not 1.0. Normalizing...")
+        st.warning(f"Probabilities sum to {total:.3f}, not 1.0. Normalizing...")
         new_probs = [p/total for p in new_probs]
 
-    if st.button("Run Experiment 1", type="primary"):
+    if st.button("Run Experiment 1", type="primary", width="stretch"):
         import copy
         modified_cpt = copy.deepcopy(cpt)
         modified_cpt["Performance"]["table"][selected_combo] = new_probs
@@ -839,7 +878,7 @@ with tab5:
             fig.add_trace(go.Bar(name='Baseline', x=states, y=exp1_result['baseline_posterior'], marker_color='#2196F3', opacity=0.7))
             fig.add_trace(go.Bar(name='Modified', x=states, y=exp1_result['modified_posterior'], marker_color='#F44336', opacity=0.7))
             fig.update_layout(title="Experiment 1: Baseline vs Modified CPT", barmode='group', height=350, template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             # Drift breakdown
             drift_df = pd.DataFrame({
@@ -848,7 +887,7 @@ with tab5:
                 "Modified": [f"{v:.4f}" for v in exp1_result['modified_posterior']],
                 "Absolute Drift": [f"{v:+.4f}" for v in exp1_result['absolute_drift']]
             })
-            st.dataframe(drift_df, hide_index=True, use_container_width=True)
+            st.dataframe(drift_df, hide_index=True)
 
         except Exception as e:
             st.error(f"Error: {e}")
@@ -856,7 +895,7 @@ with tab5:
     st.divider()
 
     # Experiment 2: Change Evidence
-    st.subheader("🧪 Experiment 2: Evidence Perturbation")
+    st.subheader("Experiment 2: Evidence Perturbation")
     st.caption("Change one evidence value from the baseline scenario")
 
     # Show current evidence
@@ -871,7 +910,7 @@ with tab5:
         [s for s in node_by_name[evidence_var]["states"] if s != baseline_evidence[evidence_var]]
     )
 
-    if st.button("Run Experiment 2", type="primary"):
+    if st.button("Run Experiment 2", type="primary", width="stretch"):
         changed_evidence = dict(baseline_evidence)
         changed_evidence[evidence_var] = evidence_new_val
 
@@ -890,7 +929,7 @@ with tab5:
         fig.add_trace(go.Bar(name='Baseline', x=states, y=[baseline_posterior[s] for s in states], marker_color='#2196F3', opacity=0.7))
         fig.add_trace(go.Bar(name='Changed Evidence', x=states, y=[exp2_posterior[s] for s in states], marker_color='#FF9800', opacity=0.7))
         fig.update_layout(title=f"Experiment 2: {evidence_var}={baseline_evidence[evidence_var]} → {evidence_new_val}", barmode='group', height=350, template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # KL divergence
         kl_div = sum(
@@ -915,12 +954,12 @@ with tab5:
             f"Evidence {evidence_var}={evidence_new_val}": [f"{exp2_posterior[s]:.4f}" for s in states],
             "Drift": [f"{exp2_posterior[s] - baseline_posterior[s]:+.4f}" for s in states]
         })
-        st.dataframe(comp_df, hide_index=True, use_container_width=True)
+        st.dataframe(comp_df, hide_index=True)
 
     st.divider()
 
     # Predefined experiments from the original app
-    st.subheader("📋 Predefined Sensitivity Experiments")
+    st.subheader("Predefined Sensitivity Experiments")
 
     # Experiment 1 from original: Modify Performance | Medium|Medium
     import copy
@@ -970,13 +1009,13 @@ with tab5:
         st.metric("KL Div", f"{kl2:.6f}")
 
     # Comparison table
-    st.subheader("📊 Three-Way Comparison")
+    st.subheader("Three-Way Comparison")
     comp_table = {
         "Baseline": baseline_posterior,
         "CPT Modified": mod_posterior,
         "AssignmentCompletion=High": exp2_posterior
     }
-    st.dataframe(pd.DataFrame(comp_table), use_container_width=True)
+    st.dataframe(pd.DataFrame(comp_table))
 
 # ==========================================
 # FOOTER
