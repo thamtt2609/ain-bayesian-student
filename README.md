@@ -96,5 +96,4 @@ Code: MIT License
 ## Links
 
 - **GitHub Repository**: https://github.com/thamtt2609/ain-bayesian-student
-- **Streamlit Docs**: https://docs.streamlit.io
 - **References**: Pearl (1988), Koller & Friedman (2009), Russell & Norvig (2020)
